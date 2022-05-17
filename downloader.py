@@ -10,6 +10,16 @@ DESTINATION = 'im'
 VERBOSE = 1
 
 
+def make_dir(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        if VERBOSE:
+            print(f'Made directory: {directory}')
+    else:
+        if VERBOSE:
+            print(f'Using existing directory: {directory}')
+
+
 def check(url: str):
     return not url.startswith('//')
 
@@ -30,16 +40,6 @@ def download_images(url, i, destination_template, timeout):
         img_file.write(data)
 
 
-def make_dir(directory):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-        if VERBOSE:
-            print(f'Made directory: {directory}')
-    else:
-        if VERBOSE:
-            print(f'Using existing directory: {directory}')
-
-
 def download(workers, destination, urls):
     t = time()
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
@@ -56,7 +56,6 @@ def download(workers, destination, urls):
     print(f'Download finished, total time: {time() - t}')
 
 
-# for file in os.listdir(directory):
 def make_post_processing_of_file(file):
     '''Count sum of squared bytes in file'''
     counter = 0

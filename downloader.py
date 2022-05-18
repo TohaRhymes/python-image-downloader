@@ -1,13 +1,30 @@
 import concurrent.futures
 import os
 import urllib.request
+from hashlib import md5
 from time import time
 from tqdm import tqdm
+import argparse
 
-FILE = 'data/images2.txt'
-WORKERS = 50
-DESTINATION = 'im'
-VERBOSE = 1
+FILE = None
+DESTINATION = None
+WORKERS = None
+VERBOSE = None
+POST_PROCESSING = None
+
+
+def parse_args() -> (str, str, int, bool, bool):
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-in", "--file", help="File with links to image.", type=str)
+    parser.add_argument("-out", "--out_dir", help="Output directory.", type=str)
+    parser.add_argument("-wrks", "--workers", help="Amount of python workers (python threads work in parallel).",
+                        type=int)
+    parser.add_argument("-vb", "--verbose", help="Verbosity of the output.", type=bool)
+    parser.add_argument("-pp", "--postprocessing", help="Make post-processing?.", type=bool)
+
+    args = parser.parse_args()
+    return args.file, args.out_dir, args.workers, args.verbose, args.postprocessing
 
 
 def make_dir(directory):
@@ -34,10 +51,12 @@ def get_urls_from_file(file):
         return list()
 
 
-def download_images(url, i, destination_template, timeout):
-    data = urllib.request.urlopen(url, timeout=timeout).read()
-    with open(destination_template.format(i), "wb") as img_file:
-        img_file.write(data)
+def download_image(url, destination_template, timeout):
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        data = response.read()
+        ext = response.info().get_content_subtype()
+        with open(destination_template.format(f'{md5(data).hexdigest()}.{ext}'), "wb") as img_file:
+            img_file.write(data)
 
 
 def download(workers, destination, urls):
@@ -45,19 +64,23 @@ def download(workers, destination, urls):
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         # Start the load operations and mark each future with its URL
         dest = os.path.join(destination, '{}')
-        future_to_url = {executor.submit(download_images, url, i, dest, 60): url for i, url in enumerate(urls)}
+        future_to_url = {executor.submit(download_image, url, dest, 60): url for url in urls}
+        successes = 0
+        errors = 0
         for future in tqdm(concurrent.futures.as_completed(future_to_url)):
             url = future_to_url[future]
             try:
                 future.result()
+                successes += 1
             except Exception as exc:
+                errors += 1
                 if VERBOSE:
                     print('%r generated an exception: %s' % (url, exc))
-    print(f'Download finished, total time: {time() - t}')
+    print(f'Download finished (errors: {errors}, successes: {successes}).\nTotal time: {time() - t}')
 
 
 def make_post_processing_of_file(file):
-    '''Count sum of squared bytes in file'''
+    """Count sum of squared bytes in file"""
     counter = 0
     with open(file, 'rb') as f:
         byte = f.read(1)
@@ -84,6 +107,7 @@ def make_post_processing(workers, destination):
 
 
 def main():
+    FILE, DESTINATION, WORKERS, VERBOSE, POST_PROCESSING = parse_args()
     urls = get_urls_from_file(FILE)
     t = time()
     if len(urls) < 1:
@@ -91,7 +115,8 @@ def main():
         return None
     make_dir(DESTINATION)
     download(WORKERS, DESTINATION, urls)
-    make_post_processing(WORKERS, DESTINATION)
+    if POST_PROCESSING:
+        make_post_processing(WORKERS, DESTINATION)
     print(f'Program finished, total time: {time() - t}')
 
 

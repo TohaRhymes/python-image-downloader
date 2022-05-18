@@ -20,8 +20,10 @@ def parse_args() -> (str, str, int, bool, bool):
     parser.add_argument("-out", "--out_dir", help="Output directory.", type=str)
     parser.add_argument("-wrks", "--workers", help="Amount of python workers (python threads work in parallel).",
                         type=int)
-    parser.add_argument("-vb", "--verbose", help="Verbosity of the output.", type=bool)
-    parser.add_argument("-pp", "--postprocessing", help="Make post-processing?.", type=bool)
+    parser.add_argument("-vb", "--verbose", help="Verbosity of the output.", type=bool,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument("-pp", "--postprocessing", help="Make post-processing?", type=bool,
+                        action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     return args.file, args.out_dir, args.workers, args.verbose, args.postprocessing
@@ -76,7 +78,7 @@ def download(workers, destination, urls):
                 errors += 1
                 if VERBOSE:
                     print('%r generated an exception: %s' % (url, exc))
-    print(f'Download finished (errors: {errors}, successes: {successes}).\nTotal time: {time() - t}')
+    print(f'Download finished (errors: {errors}, successes: {successes}).\nTotal time of downloading: {time() - t}')
 
 
 def make_post_processing_of_file(file):
